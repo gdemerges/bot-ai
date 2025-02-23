@@ -25,7 +25,7 @@ def chat(request: ChatRequest):
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": request.message}],
-            api_key=OPENAI_API_KEY
+            api_key=OPENAI_API_KEY,
             max_tokens=100
         )
         result = response.choices[0].message.content
