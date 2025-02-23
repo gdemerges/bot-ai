@@ -1,17 +1,23 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
+import openai
+import os
 
 app = FastAPI()
 
-@app.get("/")
-def read_root():
-    return {"message": "API déployée sur Azure 🚀"}
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-@app.get("/ping")
-def ping():
-    return {"status": "ok"}
+class ChatRequest(BaseModel):
+    message: str
 
-if __name__ == "__main__":
-    import uvicorn
-    import os
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+@app.post("/chat")
+def chat(request: ChatRequest):
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": request.message}],
+            api_key=OPENAI_API_KEY
+        )
+        return {"response": response["choices"][0]["message"]["content"]}
+    except Exception as e:
+        return {"error": str(e)}
