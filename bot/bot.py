@@ -2,6 +2,9 @@ import discord
 from discord.ext import commands
 import os
 import httpx
+from dotenv import load_dotenv
+
+load_dotenv()
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -21,30 +24,21 @@ async def on_ready():
 async def on_message(message):
     if message.author == bot.user:
         return
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{API_URL}/chat", json={"message": message.content})
+            response_data = response.json()
 
-    if message.content.lower().startswith("!ask"):
-        user_message = message.content[5:] 
+        if "response" in response_data:
+            answer = response_data["response"]
+        else:
+            answer = "❌ Erreur lors de la requête à l'API."
 
-        if not user_message:
-            await message.channel.send("❌ Veuillez poser une question après `!ask`.")
-            return
+    except Exception as e:
+        answer = f"❌ Erreur de connexion : {e}"
 
-        await message.channel.send("💬 Génération de la réponse...")
-
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(f"{API_URL}/chat", json={"message": user_message})
-                response_data = response.json()
-
-            if "response" in response_data:
-                answer = response_data["response"]
-            else:
-                answer = "❌ Erreur lors de la requête à l'API."
-
-        except Exception as e:
-            answer = f"❌ Erreur de connexion : {e}"
-
-        await message.channel.send(answer)
+    await message.channel.send(answer)
 
     await bot.process_commands(message)
     
