@@ -47,5 +47,9 @@ async def on_message(message):
         await message.channel.send(answer)
 
     await bot.process_commands(message)
+    
+@bot.command()
+async def ping(ctx):
+    await ctx.send("Pong! 🏓")
 
 bot.run(TOKEN)
