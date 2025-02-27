@@ -12,7 +12,11 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = openai.AzureOpenAI(
+    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+)
 app = FastAPI()
 
 PORT = int(os.getenv("PORT", 8000))
@@ -25,7 +29,7 @@ def chat(request: ChatRequest):
     try:
         logger.info(f"Message reçu : {request.message}")
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
             messages=[{"role": "user", "content": request.message}],
             max_tokens=100
         )
