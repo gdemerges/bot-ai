@@ -19,7 +19,7 @@ client = openai.AzureOpenAI(
 )
 app = FastAPI()
 
-PORT = int(os.getenv("PORT", 8000))
+PORT = int(os.getenv("PORT", "8000"))
 
 class ChatRequest(BaseModel):
     message: str
@@ -27,27 +27,63 @@ class ChatRequest(BaseModel):
 @app.post("/chat")
 def chat(request: ChatRequest):
     try:
-        logger.info(f"Message reçu : {request.message}")
+        personality = bot_config.get("personality", "neutre")
+
+        system_message = {
+            "neutre": "Tu es un assistant utile et impartial.",
+            "sombre": "Tu es un assistant cynique et sarcastique.",
+            "bienveillant": "Tu es un assistant empathique et encourageant.",
+            "drôle": "Tu es un assistant comique et blagueur."
+        }.get(personality, "Tu es un assistant utile et impartial.")
+
+        logger.info("Personnalité actuelle : %s", personality)
+        logger.info("Message reçu : %s", request.message)
+
         response = client.chat.completions.create(
             model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-            messages=[{"role": "user", "content": request.message}],
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": request.message}
+            ],
             max_tokens=100
         )
         result = response.choices[0].message.content
-        logger.info(f"Réponse envoyée : {result}")
+        logger.info("Réponse envoyée : %s", result)
         return {"response": result}
     except Exception as e:
-        logger.error(f"Erreur lors de la requête OpenAI : {e}")
+        logger.error("Erreur lors de la requête OpenAI : %s", e)
         return {"error": str(e)}
     
 @app.get("/status")
 def status():
     return {"status": "API en ligne"}
 
+@app.get("/health")
+def health():
+    return {"status": "OK"}
+
 @app.get("/logs", response_class=PlainTextResponse)
 def get_logs():
-    with open("app.log", "r") as f:
+    with open("app.log", "r", encoding="utf-8") as f:
         return f.read()
+    
+bot_config = {
+    "personality": "neutre"
+}
+
+class BotConfig(BaseModel):
+    personality: str
+
+@app.get("/config")
+def get_config():
+    """Retourne la configuration actuelle du bot"""
+    return bot_config
+
+@app.post("/config")
+def update_config(config: BotConfig):
+    """Met à jour la configuration du bot"""
+    bot_config["personality"] = config.personality
+    return {"message": "Configuration mise à jour", "config": bot_config}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=PORT)
