@@ -62,6 +62,9 @@ jobs:
         with:
           name: python-app
 
+      - name: Set environment variables
+        run: echo "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}" >> $GITHUB_ENV
+
       - name: Unzip artifact for deployment
         run: unzip release.zip
 
@@ -73,3 +76,8 @@ jobs:
           app-name: 'bot-discord'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_D219263F61C84F9797D2C54C81871C1A }}
+
+      - name: Start bot
+        run: |
+            source venv/bin/activate
+            python bot/bot.py
