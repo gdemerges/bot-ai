@@ -1,3 +1,5 @@
 pytest
-fastapi[test] 
 httpx
+fastapi
+openai
+python-dotenv
