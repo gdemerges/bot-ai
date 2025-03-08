@@ -36,6 +36,12 @@ jobs:
             pip install -r api/requirements.txt
             pip install -r bot/requirements.txt
             pip install -r tests/requirements.txt
+
+      - name: Set environment variables
+        run: echo "Setting environment variables"
+        env:
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
   
       - name: Run tests
         run: pytest tests/

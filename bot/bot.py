@@ -88,4 +88,6 @@ async def parler(ctx, *, message):
 async def ping(ctx):
     await ctx.send("Pong! 🏓")
 
-bot.run(TOKEN)
+if __name__ == "__main__":
+    if os.getenv("CI") != "true":
+        bot.run(TOKEN)
