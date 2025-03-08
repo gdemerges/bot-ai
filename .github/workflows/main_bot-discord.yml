@@ -32,6 +32,8 @@ jobs:
       
       - name: Install dependencies
         run: |
+            pip install --upgrade pip
+            pip install -r api/requirements.txt
             pip install -r bot/requirements.txt
             pip install -r tests/requirements.txt
   

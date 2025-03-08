@@ -4,3 +4,4 @@ openai
 gunicorn
 uvicorn
 httpx
+prometheus_client
