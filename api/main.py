@@ -1,28 +1,42 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
+from fastapi import FastAPI, Request, Depends
+from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel
 import openai
 import os
 import uvicorn
 import logging
 from dotenv import load_dotenv
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, REGISTRY
-from fastapi.responses import Response
+from prometheus_client import Counter, Histogram, generate_latest, REGISTRY
 
 load_dotenv()
-
-requests_counter = Counter("http_requests_total", "Nombre total de requêtes HTTP")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+http_requests_total = Counter("http_requests_total", "Nombre total de requêtes HTTP")
+request_latency = Histogram("http_request_duration_seconds", "Temps de réponse des requêtes")
+
+client = None
 if os.getenv("CI") != "true":
-    client = openai.AzureOpenAI(api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-                                azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-                                api_version=os.getenv("AZURE_OPENAI_API_VERSION"))
+    try:
+        client = openai.AzureOpenAI(
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+        )
+    except Exception as e:
+        logger.error(f"Erreur lors de l'initialisation d'OpenAI : {e}")
+
+PERSONALITIES = {
+    "neutre": "Tu es un assistant utile et impartial.",
+    "sombre": "Tu es un assistant cynique et sarcastique.",
+    "bienveillant": "Tu es un assistant empathique et encourageant.",
+    "drôle": "Tu es un assistant comique et blagueur.",
+}
+
+bot_config = {"personality": "neutre"}
 
 app = FastAPI()
-
 PORT = int(os.getenv("PORT", "8000"))
 
 class ChatRequest(BaseModel):
@@ -30,34 +44,26 @@ class ChatRequest(BaseModel):
 
 @app.post("/chat")
 def chat(request: ChatRequest):
+    """Génère une réponse basée sur la personnalité actuelle du bot."""
     try:
         personality = bot_config.get("personality", "neutre")
+        system_message = PERSONALITIES.get(personality, PERSONALITIES["neutre"])
 
-        system_message = {
-            "neutre": "Tu es un assistant utile et impartial.",
-            "sombre": "Tu es un assistant cynique et sarcastique.",
-            "bienveillant": "Tu es un assistant empathique et encourageant.",
-            "drôle": "Tu es un assistant comique et blagueur."
-        }.get(personality, "Tu es un assistant utile et impartial.")
-
-        logger.info("Personnalité actuelle : %s", personality)
-        logger.info("Message reçu : %s", request.message)
+        if not client:
+            raise ValueError("Client OpenAI non initialisé.")
 
         response = client.chat.completions.create(
             model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": request.message}
-            ],
-            max_tokens=100
+            messages=[{"role": "system", "content": system_message}, {"role": "user", "content": request.message}],
+            max_tokens=100,
         )
         result = response.choices[0].message.content
-        logger.info("Réponse envoyée : %s", result)
+        logger.info(f"Réponse envoyée : {result}")
         return {"response": result}
     except Exception as e:
-        logger.error("Erreur lors de la requête OpenAI : %s", e)
+        logger.error(f"Erreur OpenAI : {e}")
         return {"error": str(e)}
-    
+
 @app.get("/status")
 def status():
     return {"status": "API en ligne"}
@@ -68,33 +74,30 @@ def health():
 
 @app.get("/logs", response_class=PlainTextResponse)
 def get_logs():
-    with open("app.log", "r", encoding="utf-8") as f:
-        return f.read()
-    
-bot_config = {
-    "personality": "neutre"
-}
+    """Récupère les logs de l'application."""
+    try:
+        with open("app.log", "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "Aucun log disponible."
+
+@app.get("/config")
+def get_config():
+    """Retourne la configuration actuelle du bot."""
+    return bot_config
 
 class BotConfig(BaseModel):
     personality: str
 
-@app.get("/config")
-def get_config():
-    """Retourne la configuration actuelle du bot"""
-    return bot_config
-
 @app.post("/config")
 def update_config(config: BotConfig):
-    """Met à jour la configuration du bot"""
+    """Met à jour la configuration du bot."""
     bot_config["personality"] = config.personality
     return {"message": "Configuration mise à jour", "config": bot_config}
 
-http_requests_total = Counter("http_requests_total", "Nombre total de requêtes reçues")
-
-request_latency = Histogram("http_request_duration_seconds", "Temps de réponse des requêtes")
-
 @app.middleware("http")
 async def track_metrics(request: Request, call_next):
+    """Middleware pour enregistrer les métriques des requêtes."""
     http_requests_total.inc()
     with request_latency.time():
         response = await call_next(request)
@@ -102,6 +105,7 @@ async def track_metrics(request: Request, call_next):
 
 @app.get("/metrics")
 def metrics():
+    """Exporte les métriques pour Prometheus."""
     return Response(content=generate_latest(REGISTRY), media_type="text/plain")
 
 if __name__ == "__main__":
