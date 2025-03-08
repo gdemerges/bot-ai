@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 import openai
@@ -6,8 +6,12 @@ import os
 import uvicorn
 import logging
 from dotenv import load_dotenv
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, REGISTRY
+from fastapi.responses import Response
 
 load_dotenv()
+
+requests_counter = Counter("http_requests_total", "Nombre total de requêtes HTTP")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -84,6 +88,21 @@ def update_config(config: BotConfig):
     """Met à jour la configuration du bot"""
     bot_config["personality"] = config.personality
     return {"message": "Configuration mise à jour", "config": bot_config}
+
+http_requests_total = Counter("http_requests_total", "Nombre total de requêtes reçues")
+
+request_latency = Histogram("http_request_duration_seconds", "Temps de réponse des requêtes")
+
+@app.middleware("http")
+async def track_metrics(request: Request, call_next):
+    http_requests_total.inc()
+    with request_latency.time():
+        response = await call_next(request)
+    return response
+
+@app.get("/metrics")
+def metrics():
+    return Response(content=generate_latest(REGISTRY), media_type="text/plain")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=PORT)

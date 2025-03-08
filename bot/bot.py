@@ -4,6 +4,7 @@ import os
 import httpx
 from dotenv import load_dotenv
 import requests
+from prometheus_client import Counter, start_http_server
 
 load_dotenv()
 
@@ -17,6 +18,10 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 API_URL = os.getenv("FASTAPI_URL")
 API_CONFIG_URL = "http://127.0.0.1:8000/config"
+
+messages_processed = Counter("discord_messages_processed", "Nombre total de messages traités par le bot")
+
+start_http_server(9090)
 
 def get_personality():
     """Récupère la personnalité actuelle du bot depuis l'API"""
@@ -55,7 +60,8 @@ async def on_message(message):
         answer = f"❌ Erreur HTTP : {e}"
 
     await message.channel.send(answer)
-
+    
+    messages_processed.inc()
     await bot.process_commands(message)
     
 @bot.command()
