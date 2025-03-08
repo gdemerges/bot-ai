@@ -16,11 +16,11 @@ requests_counter = Counter("http_requests_total", "Nombre total de requêtes HTT
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-client = openai.AzureOpenAI(
-    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-)
+if os.getenv("CI") != "true":
+    client = openai.AzureOpenAI(api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+                                azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                                api_version=os.getenv("AZURE_OPENAI_API_VERSION"))
+
 app = FastAPI()
 
 PORT = int(os.getenv("PORT", "8000"))
