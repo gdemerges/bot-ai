@@ -30,9 +30,6 @@ jobs:
           python -m venv venv
           source venv/bin/activate
       
-      - name: Debug requirements file
-        run: cat bot/requirements.txt
-      
       - name: Install dependencies
         run: |
             pip install --upgrade pip
@@ -41,10 +38,9 @@ jobs:
             pip install -r tests/requirements.txt
 
       - name: Set environment variables
-        run: echo "Setting environment variables"
-        env:
-          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
-          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: |
+            echo "AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }}" >> $GITHUB_ENV
+            echo "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}" >> $GITHUB_ENV 
   
       - name: Run tests
         run: pytest tests/

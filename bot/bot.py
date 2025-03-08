@@ -54,7 +54,6 @@ async def on_message(message):
 
 @bot.command()
 async def parler(ctx, *, message):
-    """Le bot répond via l'API."""
     async with httpx.AsyncClient() as client:
         response = await client.post(f"{API_URL}/chat", json={"message": message})
         answer = response.json().get("response", "❌ Erreur lors de la requête.")
